@@ -28,7 +28,7 @@ head(traffic)
 
 ```{r}
 # create time series
-ts <- ts(traffic$Vehicles, start=c(2015,11), frequency=24*60) # minutes per day (is this wrong?)
+ts <- ts(traffic$Vehicles, start=c(2015,11), end=c(2017,6), frequency=60)
 plot(ts)
 ```
 
