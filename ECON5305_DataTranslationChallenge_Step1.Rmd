@@ -1,0 +1,65 @@
+# ECON 5305: Econ & Business Forecasting
+
+# Data Translation Challenge
+
+# McKenzie Maidl, Tuan Anh Nguyen, Samikshya Pandey
+
+# Step 1: Explore the data and perform in-sample evaluations
+
+```{r}
+# imports
+library(dplyr)
+library(forecast)
+library(urca)
+```
+
+```{r}
+# upload data
+traffic <- read.csv('Data/traffic.csv')
+
+# take just one junction
+traffic <- traffic %>% 
+  filter(Junction == 1)
+
+# take subset of columns
+traffic <- traffic[c('DateTime', 'Vehicles')]
+
+# date and time
+traffic$DateTime <- as.POSIXct(traffic$DateTime, format= "%Y-%m-%d %H:%M")
+class(traffic$DateTime)
+
+# view data
+head(traffic)
+
+nrow(traffic)
+```
+
+```{r}
+# create time series
+ts <- ts(traffic$Vehicles, start=c(2015,11), end=c(2017,6), frequency=24)
+plot(ts)
+```
+
+The data does not appear to be stationary but we confirm via the Augmented Dickey-Fuller test.
+```{r}
+# check if data is stationary
+summary(ur.df(ts, type="drift", lags=0))
+```
+
+```{r}
+# make data stationary
+
+```
+
+```{r}
+# plot updated data
+```
+
+```{r}
+# new Augmented Dickey-Fuller test
+```
+
+```{r}
+# acf and pacf
+
+```
