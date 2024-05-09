@@ -47,19 +47,42 @@ summary(ur.df(ts, type="drift", lags=0))
 ```
 
 ```{r}
-# make data stationary
+# make data stationary via first difference
+ts1 <- diff(ts)
+plot(ts1)
+
+# Augmented Dickey-Fuller
+summary(ur.df(ts1, type="drift", lags=0))
+```
+
+```{r}
+# acf and pacf (differenced ts)
+acf(ts1)
+pacf(ts1)
+```
+
+```{r}
+# create different models
 
 ```
 
 ```{r}
-# plot updated data
+# acf and pacf of model residuals
+
 ```
 
 ```{r}
-# new Augmented Dickey-Fuller test
+# Q-Test of the residuals to confirm they resemble white noise
+
 ```
 
 ```{r}
-# acf and pacf
+# AIC and BIC of models
 
 ```
+
+```{r}
+
+```
+
+
