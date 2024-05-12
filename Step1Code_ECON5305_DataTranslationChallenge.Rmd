@@ -60,27 +60,134 @@ summary(ur.df(ts1, type="drift", lags=0))
 acf(ts1)
 pacf(ts1)
 ```
-
+From intial ACF and PACF, we see that there is some value in lag 6 so lets test different models till lag 6. 
 ```{r}
-# create different models
+# create different models:
+
+labels <- c()
+r2 <- c()
+aic <- c()
+bic <- c()
+mean_resd <- c()
+
+for (m in c(1, 2, 3, 4, 5, 6)) {
+  m1 <- arima(ts1, order=c(m, 0, 0))
+  m2 <- arima(ts1, order=c(0, 0, m))
+  m3 <- arima(ts1, order=c(1, 0, m))
+  m4 <- arima(ts1, order=c(m, 0, m))
+  
+  # Correcting label concatenation
+  labels <- c(labels, paste("AR(", m, ")", sep=""), paste("MA(", m, ")", sep=""), paste("ARMA(1,", m, ")", sep=""), paste("ARMA(", m, ",", m, ")", sep=""))
+  
+  # Calculate R^2 and ensure both series have no NA values for valid comparison
+  r2 <- c(r2, cor(fitted(m1), ts1, use = "complete.obs")^2, cor(fitted(m2), ts1, use = "complete.obs")^2, cor(fitted(m3), ts1, use = "complete.obs")^2, cor(fitted(m4), ts1, use = "complete.obs")^2)
+  
+  aic <- c(aic, AIC(m1), AIC(m2), AIC(m3), AIC(m4))
+  bic <- c(bic, BIC(m1), BIC(m2), BIC(m3), BIC(m4))
+  mean_resd <- c(mean_resd, mean(residuals(m1)), mean(residuals(m2)), mean(residuals(m3)), mean(residuals(m4)))
+}
+
+# Creating the data frame to display results
+all_models <- data.frame(labels, r2, aic, bic,mean_resd)
+all_models
 
 ```
+```{r}
+sorted_by_aic <- all_models[order(all_models$aic), ]
+top_5_aic <- head(sorted_by_aic, 5)
+top_5_aic
+```
+
+
+```{r}
+
+# Sorting by BIC and selecting the top 5
+sorted_by_bic <- all_models[order(all_models$bic), ]
+top_5_bic <- head(sorted_by_bic, 5)
+top_5_bic
+```
+Based on the value, I chose MA(6) because its r^2 is 44% which is better than any models sorted by BIC method. The AIC value is also acceptable and BIC vales are not that different. 
+Therefore, the best model is MA(6)
+3 best models are: MA(6), ARMA(1,6), ARMA(2,2)
+
 
 ```{r}
 # acf and pacf of model residuals
+model_finalm6 <-  arima(ts1, order=c(0, 0, 6))
+summary(model_final)
+
 
 ```
+```{r}
+# acf and pacf of model residuals for best model (MA 6)
+residuals_ma6 <- residuals(model_final)
+# Plot ACF
+acf(residuals_ma6, main="ACF of Residuals")
+
+# Plot PACF
+pacf(residuals_ma6, main="PACF of Residuals")
+```
+All ACF (except the first one) and PACF lags are within the significance lines, indicating they resemble white noise.
 
 ```{r}
 # Q-Test of the residuals to confirm they resemble white noise
+ljung_box_testma6 <- Box.test(residuals_ma6, type = "Ljung-Box", lag = 10)
+
+# Print the results
+print(ljung_box_testma6)
 
 ```
+Given the p-value of 0.9745, you would fail to reject the null hypothesis of the Ljung-Box test, which states that the residuals are independently distributed (i.e., exhibit no autocorrelation). This is an indicator of a good model fit, as it implies that the residuals from your MA(6) model resemble white noise. 
 
+## ARMA (1,6)
+```{r}
+
+model_finalarma6 <-  arima(ts1, order=c(1, 0, 6))
+summary(model_finalarma6)
+residuals_arma6 <- residuals(model_finalarma6)
+# Plot ACF
+acf(residuals_arma6, main="ACF of Residuals")
+
+# Plot PACF
+pacf(residuals_arma6, main="PACF of Residuals")
+
+# Q-Test of the residuals to confirm they resemble white noise
+ljung_box_testarma6 <- Box.test(residuals_arma6, type = "Ljung-Box", lag = 10)
+
+# Print the results
+print(ljung_box_testarma6)
+
+```
+ARMA(1,6) also has residuals that resemeble whitw noise ( p value os 0.98), all ACF and PACF of residuals within the significance line. 
+## MODEL ARMA (2,2)
+```{r}
+
+model_finalarma2 <-  arima(ts1, order=c(2, 0, 2))
+summary(model_finalarma2)
+residuals_arma2 <- residuals(model_finalarma2)
+# Plot ACF
+acf(residuals_arma2, main="ACF of Residuals")
+
+# Plot PACF
+pacf(residuals_arma2, main="PACF of Residuals")
+
+# Q-Test of the residuals to confirm they resemble white noise
+ljung_box_testarma2 <- Box.test(residuals_arma2, type = "Ljung-Box", lag = 10)
+
+# Print the results
+print(ljung_box_testarma2)
+
+```
+ARMA (2,2) also has 0.699 of p vlaue but it is less significance from other two models and also the PACF of the residuals has one significant vlaue. 
+
+OVERALL THE BEST MODEL IS MA(6) followed by ARMA (1,6)
 ```{r}
 # AIC and BIC of models
 
 ```
-
+The AIC and BIC for MA(6) is 232.6891,	246.7787. 
+For ARMA(1,6)	is 	234.6683	250.5191 and
+for ARMA(2,2)	0.2961370	234.8351	245.4023
 ```{r}
 
 ```
