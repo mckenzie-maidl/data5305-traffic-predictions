@@ -1,0 +1,200 @@
+# ECON 5305: Econ & Business Forecasting
+
+# Data Translation Challenge
+
+# McKenzie Maidl, Tuan Anh Nguyen, Samikshya Pandey
+
+# Step 1: Explore the data and perform in-sample evaluations
+
+```{r}
+# imports
+library(dplyr)
+library(forecast)
+library(urca)
+```
+
+```{r}
+getwd()
+```
+
+```{r}
+# upload data
+total_sales <- read.csv('TOTALSA.csv')
+head(total_sales)
+```
+
+
+```{r}
+# Convert Date into time format
+
+total_sales$DATE <- as.Date(total_sales$DATE, format = "%d/%m/%Y")
+class(total_sales$DATE)
+
+```
+
+```{r}
+# create time series
+ts <- ts(total_sales$TOTALSA, start=c(1976,1),  frequency=4)
+plot(ts, xlab = "Time", ylab = "Total vehicle Sales per quarter", main = "Sales Over Time")
+```
+
+The data does not appear to be stationary but we confirm via the Augmented Dickey-Fuller test.
+
+```{r}
+
+```
+
+```{r}
+# check if data is stationary
+summary(ur.df(ts, lags=0))
+```
+ADF test statistics (-0.29) higher than critical value (-2.58) so we cannot reject the null. Therefore, our data has unit root and it is not stationary. 
+
+
+```{r}
+# make data stationary via first difference
+ts1 <- diff(ts)
+plot(ts1)
+
+# Augmented Dickey-Fuller
+summary(ur.df(ts1, lags=0))
+```
+After we take the diff of the total sales, we can see that the data is stationary. This is further confirmed by the ADF test. Our ADF test statistics value (-17.20) is much smaller than the critical value. Therefore, we can confirm that the data is now stationary. 
+
+```{r}
+# acf and pacf (differenced ts)
+acf(ts1)
+pacf(ts1)
+```
+From intial ACF and PACF, we see that tour PACF values alternates between negative and positive and that there are spikes in the first two algs for ACF.
+```{r}
+# create different models:
+
+labels <- c()
+r2 <- c()
+aic <- c()
+bic <- c()
+mean_resd <- c()
+
+for (m in c(1, 2, 3, 4, 5, 6)) {
+  m1 <- arima(ts1, order=c(m, 0, 0))
+  m2 <- arima(ts1, order=c(0, 0, m))
+  m3 <- arima(ts1, order=c(1, 0, m))
+  m4 <- arima(ts1, order=c(m, 0, m))
+  
+  # Correcting label concatenation
+  labels <- c(labels, paste("AR(", m, ")", sep=""), paste("MA(", m, ")", sep=""), paste("ARMA(1,", m, ")", sep=""), paste("ARMA(", m, ",", m, ")", sep=""))
+  
+  # Calculate R^2 and ensure both series have no NA values for valid comparison
+  r2 <- c(r2, cor(fitted(m1), ts1, use = "complete.obs")^2, cor(fitted(m2), ts1, use = "complete.obs")^2, cor(fitted(m3), ts1, use = "complete.obs")^2, cor(fitted(m4), ts1, use = "complete.obs")^2)
+  
+  aic <- c(aic, AIC(m1), AIC(m2), AIC(m3), AIC(m4))
+  bic <- c(bic, BIC(m1), BIC(m2), BIC(m3), BIC(m4))
+  mean_resd <- c(mean_resd, mean(residuals(m1)), mean(residuals(m2)), mean(residuals(m3)), mean(residuals(m4)))
+}
+
+# Creating the data frame to display results
+all_models <- data.frame(labels, r2, aic, bic,mean_resd)
+all_models
+
+```
+```{r}
+sorted_by_aic <- all_models[order(all_models$aic), ]
+top_5_aic <- head(sorted_by_aic, 5)
+top_5_aic
+```
+
+
+```{r}
+
+# Sorting by BIC and selecting the top 5
+sorted_by_bic <- all_models[order(all_models$bic), ]
+top_5_bic <- head(sorted_by_bic, 5)
+top_5_bic
+```
+Based on the value, I chosoe ARMA (3,3) MA(1), AR(1) and ARMA /91,1) because these performed best when sorted by AIC ANd MIC.  which is better than any models sorted by BIC method. The AIC value is also acceptable and BIC vales are not that different. 
+
+
+```{r}
+# acf and pacf of model residuals
+model_finalarma3 <-  arima(ts1, order=c(3, 0, 3))
+summary(model_finalarma3)
+
+
+```
+```{r}
+# acf and pacf of model residuals for best model ARMA(3,3)
+residuals_arma3 <- residuals(model_finalarma3)
+# Plot ACF
+acf(residuals_arma3, main="ACF of Residuals")
+
+# Plot PACF
+pacf(residuals_arma3, main="PACF of Residuals")
+```
+All ACF (except the first one) and PACF lags are within the significance lines, indicating they resemble white noise.
+
+```{r}
+# Q-Test of the residuals to confirm they resemble white noise
+ljung_box_testarma3<- Box.test(residuals_arma3, type = "Ljung-Box", lag = 10)
+
+# Print the results
+print(ljung_box_testarma3)
+
+```
+Given the p-value of 0.9745, you would fail to reject the null hypothesis of the Ljung-Box test, which states that the residuals are independently distributed (i.e., exhibit no autocorrelation). This is an indicator of a good model fit, as it implies that the residuals from your ARMA(3,3) model resemble white noise. 
+
+## MA (1)
+```{r}
+
+model_finalma1 <-  arima(ts1, order=c(0, 0, 1))
+summary(model_finalma1)
+residuals_ma1 <- residuals(model_finalma1)
+# Plot ACF
+acf(residuals_ma1, main="ACF of Residuals")
+
+# Plot PACF
+pacf(residuals_ma1, main="PACF of Residuals")
+
+# Q-Test of the residuals to confirm they resemble white noise
+ljung_box_testma1 <- Box.test(residuals_ma1, type = "Ljung-Box", lag = 10)
+
+# Print the results
+print(ljung_box_testma1)
+
+```
+MA(1,) also has residuals that resemeble whitw noise ( p value os 0.95), all ACF and PACF of residuals within the significance line. 
+## MODEL ARMA(1)
+```{r}
+
+model_finalar1 <-  arima(ts1, order=c(1, 0, 0))
+summary(model_finalar1)
+residuals_ar1 <- residuals(model_finalar1)
+# Plot ACF
+acf(residuals_ar1, main="ACF of Residuals")
+
+# Plot PACF
+pacf(residuals_ar1, main="PACF of Residuals")
+
+# Q-Test of the residuals to confirm they resemble white noise
+ljung_box_testar1 <- Box.test(residuals_ar1, type = "Ljung-Box", lag = 10)
+
+# Print the results
+print(ljung_box_testar1)
+
+```
+ARMA (2,2) also has 0.91 of p vlaue but it is less significance from other two models and also the PACF of the residuals has one significant vlaue. 
+
+
+```{r}
+# AIC and BIC of models
+
+```
+The AIC and BIC for ARMA(3,3) is 942.5077	968.3993 respectively. 
+For MA(1)	is 	942.6554	952.3647	 and
+for AR(1)	943.4648	953.1741	
+
+```{r}
+
+```
+
+
