@@ -1,0 +1,35 @@
+# ECON 5305: Econ & Business Forecasting
+
+# Data Translation Challenge
+
+# McKenzie Maidl, Tuan Anh Nguyen, Samikshya Pandey
+
+# Step 1: Explore the data and perform in-sample evaluations
+
+```{r}
+# imports
+library(dplyr)
+library(forecast)
+library(urca)
+```
+
+## From Step 1
+
+```{r}
+# upload and process data
+total_sales <- read.csv('Data/TOTALSA.csv')
+
+# convert date into time format
+total_sales$DATE <- as.Date(total_sales$DATE, format = "%d/%m/%Y")
+
+# create time series and make stationary
+ts <- ts(total_sales$TOTALSA, start=c(1976,1),  frequency=4)
+ts1 <- diff(ts)
+
+# create models
+model_arma3 <- arima(ts1, order=c(3,0,3))
+model_ma1 <-  arima(ts1, order=c(0,0,1))
+model_ar1 <-  arima(ts1, order=c(1,0,0))
+```
+
+## 
