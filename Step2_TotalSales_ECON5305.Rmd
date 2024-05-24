@@ -13,23 +13,92 @@ library(forecast)
 library(urca)
 ```
 
-## From Step 1
+In the second step, you will use the three best models from the in-sample assessment for the out-of-sample assessment. Additionally, include two simple forecasts as benchmarks: 
+  1) a naïve model, where the optimal forecast of the next period is the value of this period, ft,1 = yt and 
+  2) a simple average of the last four observations,ft,1 = (yt + yt−1 + yt−2 + yt−3) /4. These models do not require estimation.
+Split the sample into two parts: the first 90% serves as the estimation sample, while the remaining 10% serves as the prediction sample. As a priori choices, use the quadratic loss function to find your optimal forecasts. Additionally, choose two forecasting horizons to make two types of forecasts: one-step ahead forecasts (h=1) and two-step ahead forecasts (h=2).
+
+The following procedure should be conducted for each type of forecasting. Apply three schemes: the fixed sampling scheme, the recursive scheme, and the rolling scheme to collect forecasting errors.
+
+After obtaining forecasting errors, conduct forecast optimality tests (MPE and informational efficiency tests) for each model, calculate MSE, MAE, MAPE(%), and provide a descriptive evaluation
+of the average loss in a table similar to Table 9.6 on page 243 (excluding the last column).
+Lastly, create combined forecasts from the top three models using three linear combination schemes:
+1. An equal-weighted forecast.
+2. A forecast that weights each individual forecast by the inverse of its MSE.
+3. An OLS weighted optimal forecast.
+Display the weights and MSE of these three combined forecasts in a table format, similar to Table
+9.8 on page 246, and provide comments on which combination scheme you prefer. Use your favorite
+model and combination scheme to make a single one-step ahead forecast with all your sample data.
+Do the same to make a single two-step ahead forecast.
+
+## Data and Models
 
 ```{r}
-# upload and process data
+# upload data
 total_sales <- read.csv('Data/TOTALSA.csv')
+head(total_sales)
+```
 
-# convert date into time format
-total_sales$DATE <- as.Date(total_sales$DATE, format = "%d/%m/%Y")
-
+```{r}
 # create time series and make stationary
 ts <- ts(total_sales$TOTALSA, start=c(1976,1),  frequency=4)
 ts1 <- diff(ts)
+```
 
+```{r}
 # create models
 model_arma3 <- arima(ts1, order=c(3,0,3))
 model_ma1 <-  arima(ts1, order=c(0,0,1))
 model_ar1 <-  arima(ts1, order=c(1,0,0))
 ```
 
-## 
+```{r}
+# train/test split
+ind <- round(nrow(total_sales) * 0.9)  # last index of train set
+ntest <- nrow(total_sales) - split_ind # number of rows in test set
+```
+
+## Function
+```{r}
+# 1 step ahead forecast
+
+
+# 2 step ahead
+
+
+
+```
+
+
+
+## Naive Model
+
+## Simple Average 4 Model
+
+```{r}
+# generate vectors of zeros
+fcast_sa <- numeric(ntest)
+ferror_sa <- numeric(ntest)
+loss_sa <- numeric(ntest)
+resid_sa <- numeric(ntest)
+
+# forecast, error, loss
+for (i in 1:ntest) { 
+  fcast_sa[i] <- (ts1[ind+i] + ts1[ind+i-1] + ts1[ind+i-2] + ts1[ind+i-3]) / 4
+  ferror_sa[i] <- ts1[ind+i]- fcast_sa[i]
+  loss_sa[i] <- ferror_sa[i]^2
+  resid_sa[i] <- abs((ts1[ind+i]- fcast_sa[i]) / ts1[ind+i])
+} 
+
+# MPE
+mpe_sa <- summary(lm(ferror_sa ~ 1))$coefficients[,3]
+
+# MAPE
+mape_sa <- mean(abs(resid_sa))
+
+# Informational Efficiency
+ie_sa <- summary(lm(ferror_sa ~ fcast_sa))$coefficients[2,3]
+
+# MSE
+mse_sa <- mean(loss_sa)
+```
