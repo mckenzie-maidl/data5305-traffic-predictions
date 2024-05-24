@@ -33,12 +33,11 @@ Display the weights and MSE of these three combined forecasts in a table format,
 ```{r}
 # upload data
 total_sales <- read.csv('Data/TOTALSA.csv')
-head(total_sales)
 ```
 
 ```{r}
 # create time series and make stationary
-ts <- ts(total_sales$TOTALSA, start=c(1976,1),  frequency=4)
+ts <- ts(total_sales$TOTALSA, start=c(1976,1), frequency=4)
 ts1 <- diff(ts)
 ```
 
@@ -50,20 +49,20 @@ measure_performance <- function(actuals, predicted) {
   error <- actuals - predicted
   
   # Mean Percentage Error
-  MPE <- summary(lm(error ~ 1))$coefficients[,3]
+  MPE <- round(summary(lm(error ~ 1))$coefficients[,3], 4)
   
   # Informational Efficiency
-  IE <- summary(lm(error ~ predicted))$coefficients[2,3]
+  IE <- round(summary(lm(error ~ predicted))$coefficients[2,3], 4)
   
   # Mean Squared Error
-  MSE <- mean(error^2)
+  MSE <- round(mean(error^2), 4)
   
   # Mean Absolute Error
-  MAE <- mean(error)
+  MAE <- round(mean(error), 4)
   
   # Mean Absolute Percentage Error
   pererror <-abs((actuals - predicted)/actuals)
-  MAPE <- mean(pererror) * 100
+  MAPE <- round(mean(pererror) * 100, 4)
   
   results <- c(MPE, IE, MSE, MAE, MAPE)
   return(results)
@@ -72,50 +71,49 @@ measure_performance <- function(actuals, predicted) {
 
 ```{r}
 # function for generating forecasts using different schemes
-generate_forecasts <- function(ts, model_order, h, perf_fun=measure_performance) {
+generate_forecasts <- function(ts, model_order, h, perf_func=measure_performance) {
   
   # train/test split
-  train_index <- round(length(ts) * 0.9)
-  ts_train <- ts[1:train_index]
-  ts_test <- ts[(train_index+1):length(ts)]
+  ts_train <- window(ts, end=c(2018,1))
+  ts_test <- window(ts, start=c(2018,1+h))
   ntest <- length(ts_test)
   
   # fixed scheme
   m1 <- arima(ts_train, order=model_order)
   fcast1 <- numeric(ntest) 
   for (i in 1:ntest) {
-    up <- ts[1:train_index-1+i] #window(ts, start=c(1960,1),end=c(2000,3+i))
+    up <- window(ts, end=c(2017,4+i))
     md <- Arima(up, model=m1)
     fcast1[i] <- forecast(md, h=h)$mean[h]
   }
-  per1 <- perf_fun(ts_test, fcast1)
+  per1 <- perf_func(ts_test, fcast1)
   per1 <- c('Fixed', per1)
   per1df <- data.frame(matrix(unlist(per1), nrow=length(1), byrow=FALSE))
-  
+
   # recursive scheme
-  fcast2 <- numeric(ntest) 
+  fcast2 <- numeric(ntest)
   for (i in 1:ntest) {
-    up <- ts[1:train_index-1+i]
+    up <- window(ts, end=c(2017,4+i))
     md <- arima(up, order=model_order)
     fcast2[i] <- forecast(md, h=h)$mean[h]
   }
-  per2 <- perf_fun(ts_test, fcast2)
+  per2 <- perf_func(ts_test, fcast2)
   per2 <- c('Recursive', per2)
   per2df <- data.frame(matrix(unlist(per2), nrow=length(1), byrow=FALSE))
-  
+
   # rolling scheme
-  fcast3 <- numeric(ntest) 
+  fcast3 <- numeric(ntest)
   for (i in 1:ntest) {
-    up <- ts[i:train_index-1+i]
+    up <- window(ts, start=c(1976+i,1), end=c(2017,4+i))
     md <- arima(up, order=model_order)
     fcast3[i] <- forecast(md, h=h)$mean[h]
   }
-  per3 <- perf_fun(ts_test, fcast3)
+  per3 <- perf_func(ts_test, fcast3)
   per3 <- c('Rolling', per3)
   per3df <- data.frame(matrix(unlist(per3), nrow=length(1), byrow=FALSE))
-  
+
   # compare performance
-  results <- rbind(per1, per2, per3)
+  results <- data.frame(rbind(per1, per2, per3))
   colnames(results) <- c('Scheme', 'MPE', 'IE', 'MSE', 'MAE', 'MAPE')
   return(results)
 }
@@ -140,60 +138,6 @@ generate_forecasts <- function(ts, model_order, h, perf_fun=measure_performance)
 ```
 
 ### ARMA(3,3)
-
-```{r}
-model_order <- c(3,0,3)
-h <- 1
-
-ts <- ts1
-
-# train/test split
-train_index <- round(length(ts) * 0.9)
-ts_train <- ts[1:train_index]
-ts_test <- ts[(train_index+1):length(ts)]
-ntest <- length(ts_test)
-
-# fixed scheme
-m1 <- arima(ts_train, order=model_order)
-fcast1 <- numeric(ntest) 
-for (i in 1:ntest) {
-  up <- ts[1:train_index-1+i] #window(ts, start=c(1960,1),end=c(2000,3+i))
-  md <- Arima(up, model=m1)
-  fcast1[i] <- forecast(md, h=h)$mean[h]
-}
-per1 <- measure_performance(ts_test, fcast1)
-per1 <- c('Fixed', per1)
-per1df <- data.frame(matrix(unlist(per1), nrow=length(1), byrow=FALSE))
-
-# recursive scheme
-fcast2 <- numeric(ntest) 
-for (i in 1:ntest) {
-  up <- ts[1:train_index-1+i]
-  md <- arima(up, order=model_order)
-  fcast2[i] <- forecast(md, h=h)$mean[h]
-}
-per2 <- measure_performance(ts_test, fcast2)
-per2 <- c('Recursive', per2)
-per2df <- data.frame(matrix(unlist(per2), nrow=length(1), byrow=FALSE))
-
-# rolling scheme
-fcast3 <- numeric(ntest) 
-for (i in 1:ntest) {
-  up <- ts[i:train_index-1+i]
-  md <- arima(up, order=model_order)
-  fcast3[i] <- forecast(md, h=h)$mean[h]
-}
-per3 <- measure_performance(ts_test, fcast3)
-per3 <- c('Rolling', per3)
-per3df <- data.frame(matrix(unlist(per3), nrow=length(1), byrow=FALSE))
-
-# compare performance
-results <- rbind(per1, per2, per3)
-colnames(results) <- c('Scheme', 'MPE', 'IE', 'MSE', 'MAE', 'MAPE') 
-results
-```
-
-
 ```{r}
 order <- c(3,0,3)
 
@@ -214,9 +158,8 @@ order <- c(0,0,1)
 ma1_1 <- generate_forecasts(ts1, order, 1)
 ma1_1
 
-# h = 2
-ma1_2 <- generate_forecasts(ts1, order, 2)
-ma1_2
+# h = 2 does not work for MA(1)
+#ma1_2 <- generate_forecasts(ts1, order, 2)
 ```
 
 ### AR(1)
