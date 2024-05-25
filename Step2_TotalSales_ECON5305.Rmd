@@ -115,7 +115,37 @@ generate_forecasts <- function(ts, model_order, h, perf_func=measure_performance
   # compare performance
   results <- data.frame(rbind(per1, per2, per3))
   colnames(results) <- c('Scheme', 'MPE', 'IE', 'MSE', 'MAE', 'MAPE')
-  return(results)
+  
+  
+  # Combined forecast
+
+  ## equal-weighted forecast: Average of all forecast
+  fcast_ew <- (fcast1 + fcast2 +fcast3)/3
+  ###MSE: Mean squared error: AVG((actual - predicted)^2)
+  mse_ew <- mean((ts_test-fcast_ew)^2)
+  mse_ew <- c('Equal-weighted Forecast', mse_ew)
+  
+  
+  ## MSE-inversedly weight forecast: product(weights * forecasst)/ weight: 1/MSE of forecast
+  weights <- c(1/mean((ts_test-fcast1)^2), 1/mean((ts_test-fcast2)^2), 1/mean((ts_test-fcast3)^2))
+  fcast_mseiw <- weights[1] * fcast1 + weights[2] * fcast2 + weights[3] * fcast3
+
+  mse_mseiw <- mean((ts_test - fcast_mseiw)^2)
+  mse_mseiw <- c('MSE-inversedly-weighted Forecast', mse_mseiw)
+  
+  
+  ##OLS-weighted forecast MSE. Linear regression of all forecast
+
+  o_wait = lm(ts_test ~ fcast1 + fcast2 +fcast3)
+  fcast_ols <- o_wait$fitted.values
+  
+  mse_ols <- mean((ts_test-fcast_ols)^2)
+  mse_ols <- c('OLS-weighted Forecast', mse_ols)
+  
+  
+  combo_forecast_mse <- data.frame(rbind(mse_ew, mse_mseiw, mse_ols))
+  colnames(combo_forecast_mse) <- c('Combination Method','Mean Squared Error')
+  return(list(performance_results = results, combined_forecast_mse = combo_forecast_mse))
 }
 ```
 
@@ -142,12 +172,21 @@ generate_forecasts <- function(ts, model_order, h, perf_func=measure_performance
 order <- c(3,0,3)
 
 # h = 1
-arma33_1 <- generate_forecasts(ts1, order, 1)
+result <- generate_forecasts(ts1, order, 1)
+arma33_1 <- result$performance_results
+combined_forecast_mse <- result$combined_forecast_mse
 arma33_1
+combined_forecast_mse
 
+```
+```{r}
+order <- c(3,0,3)
 # h = 2
-arma33_2 <- generate_forecasts(ts1, order, 2)
+result <- generate_forecasts(ts1, order, 2)
+arma33_2 <- result$performance_results
+combined_forecast_mse <- result$combined_forecast_mse
 arma33_2
+combined_forecast_mse
 ```
 
 ### MA(1)
@@ -155,8 +194,12 @@ arma33_2
 order <- c(0,0,1)
 
 # h = 1
-ma1_1 <- generate_forecasts(ts1, order, 1)
+result <- generate_forecasts(ts1, order, 1)
+ma1_1 <- result$performance_results
+combined_forecast_mse <- result$combined_forecast_mse
 ma1_1
+combined_forecast_mse
+
 
 # h = 2 does not work for MA(1)
 #ma1_2 <- generate_forecasts(ts1, order, 2)
@@ -167,13 +210,21 @@ ma1_1
 order <- c(1,0,0)
 
 # h = 1
-ar1_1 <- generate_forecasts(ts1, order, 1)
-ar1_1
+result <- generate_forecasts(ts1, order, 1)
+ar1 <- result$performance_results
+combined_forecast_mse <- result$combined_forecast_mse
+ar1
+combined_forecast_mse
 
+```
+```{r}
 # h = 2
-ar1_2 <- generate_forecasts(ts1, order, 2)
+order <- c(1,0,0)
+result <- generate_forecasts(ts1, order, 2)
+ar1_2 <- result$performance_results
+combined_forecast_mse <- result$combined_forecast_mse
 ar1_2
+combined_forecast_mse
 ```
 
-## Combined Forecasts - NEED TO DO
 
