@@ -33,12 +33,14 @@ Display the weights and MSE of these three combined forecasts in a table format,
 ```{r}
 # upload data
 total_sales <- read.csv('Data/TOTALSA.csv')
+head(total_sales)
 ```
 
 ```{r}
 # create time series and make stationary
 ts <- ts(total_sales$TOTALSA, start=c(1976,1), frequency=4)
 ts1 <- diff(ts)
+plot(ts1)
 ```
 
 ## Functions
@@ -238,3 +240,6 @@ combined_forecast_mse <- result$combined_forecast_mse
 ar1_2
 combined_forecast_mse
 ```
+
+
+## Forecast of Favorite Model
