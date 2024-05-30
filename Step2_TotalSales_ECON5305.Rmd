@@ -1,10 +1,8 @@
 # ECON 5305: Econ & Business Forecasting
 
-# Data Translation Challenge
+# Data Translation Challenge Step 2
 
 # McKenzie Maidl, Tuan Anh Nguyen, Samikshya Pandey
-
-# Step 1: Explore the data and perform in-sample evaluations
 
 ```{r}
 # imports
@@ -13,21 +11,6 @@ library(forecast)
 library(dynlm)
 library(dplyr)
 ```
-
-In the second step, you will use the three best models from the in-sample assessment for the out-of-sample assessment. Additionally, include two simple forecasts as benchmarks: 
-  1. A naïve model, where the optimal forecast of the next period is the value of this period, ft,1 = yt and 
-  2. A simple average of the last four observations,ft,1 = (yt + yt−1 + yt−2 + yt−3) /4. These models do not require estimation.
-Split the sample into two parts: the first 90% serves as the estimation sample, while the remaining 10% serves as the prediction sample. As a priori choices, use the quadratic loss function to find your optimal forecasts. Additionally, choose two forecasting horizons to make two types of forecasts: one-step ahead forecasts (h=1) and two-step ahead forecasts (h=2).
-
-The following procedure should be conducted for each type of forecasting. 
-1. Apply three schemes: the fixed sampling scheme, the recursive scheme, and the rolling scheme to collect forecasting errors.
-2. After obtaining forecasting errors, conduct forecast optimality tests (MPE and informational efficiency tests) for each model, calculate MSE, MAE, MAPE(%), and provide a descriptive evaluation of the average loss in a table similar to Table 9.6 on page 243 (excluding the last column).
-
-Lastly, create combined forecasts from the top three models using three linear combination schemes:
-1. An equal-weighted forecast.
-2. A forecast that weights each individual forecast by the inverse of its MSE.
-3. An OLS weighted optimal forecast.
-Display the weights and MSE of these three combined forecasts in a table format, similar to Table 9.8 on page 246, and provide comments on which combination scheme you prefer. Use your favorite model and combination scheme to make a single one-step ahead forecast with all your sample data. Do the same to make a single two-step ahead forecast.
 
 ## Data
 ```{r}
@@ -121,10 +104,10 @@ generate_forecasts <- function(ts, model_order, h, perf_func=measure_performance
 
   ## equal-weighted forecast: Average of all forecast
   fcast_ew <- (fcast1 + fcast2 +fcast3)/3
+  
   ###MSE: Mean squared error: AVG((actual - predicted)^2)
   mse_ew <- mean((ts_test-fcast_ew)^2)
   mse_ew <- c('Equal-weighted Forecast', mse_ew)
-  
   
   ## MSE-inversedly weight forecast: product(weights * forecasst)/ weight: 1/MSE of forecast
   weights <- c(1/mean((ts_test-fcast1)^2), 1/mean((ts_test-fcast2)^2), 1/mean((ts_test-fcast3)^2))
@@ -133,368 +116,97 @@ generate_forecasts <- function(ts, model_order, h, perf_func=measure_performance
   mse_mseiw <- mean((ts_test - fcast_mseiw)^2)
   mse_mseiw <- c('MSE-inversedly-weighted Forecast', mse_mseiw)
   
-  
   ##OLS-weighted forecast MSE. Linear regression of all forecast
-
   o_wait = lm(ts_test ~ fcast1 + fcast2 +fcast3)
   fcast_ols <- o_wait$fitted.values
   
   mse_ols <- mean((ts_test-fcast_ols)^2)
   mse_ols <- c('OLS-weighted Forecast', mse_ols)
   
-  
   combo_forecast_mse <- data.frame(rbind(mse_ew, mse_mseiw, mse_ols))
   colnames(combo_forecast_mse) <- c('Combination Method','Mean Squared Error')
-  
-  
   
   return(list(performance_results = results, combined_forecast_mse = combo_forecast_mse, forecast = fcast1))
 }
 ```
 
-## Models
-
-### Naive Model - NEED TO DO
 ```{r}
-# h = 1
+# function for simple models
+calculate_performance_metrics <- function(actuals, forecasts) {
+  # Calculate forecast errors
+  errors <- actuals - forecasts
 
-# h = 2
+  # Handle possible division by zero if actuals contain zeros
+  safe_actuals <- ifelse(actuals == 0, 1, actuals)  # Replace zeros with ones or another small number
 
-```
+  # Performance Metrics Calculations
+  MSE <- mean(errors^2)
+  MAE <- mean(abs(errors))
+  MAPE <- mean(abs(errors / safe_actuals) * 100)
+  MPE <- mean((errors / safe_actuals) * 100)
+  IE <- cor(forecasts, errors)
 
-### Simple Average 4 Model - NEED TO DO
-```{r}
-# h = 1
-
-# h = 2
-
-```
-
-### ARMA(3,3)
-```{r}
-order <- c(3,0,3)
-
-# h = 1
-result <- generate_forecasts(ts1, order, 1)
-arma33_1 <- result$performance_results
-combined_forecast_mse <- result$combined_forecast_mse
-fcast1 <-result$forecast
-arma33_1
-combined_forecast_mse
-
-```
-```{r}
-order <- c(3,0,3)
-# h = 2
-result <- generate_forecasts(ts1, order, 2)
-arma33_2 <- result$performance_results
-combined_forecast_mse <- result$combined_forecast_mse
-fcast1_2 <- result$forecast
-arma33_2
-combined_forecast_mse
-```
-
-### MA(1)
-```{r}
-order <- c(0,0,1)
-
-# h = 1
-result <- generate_forecasts(ts1, order, 1)
-ma1_1 <- result$performance_results
-combined_forecast_mse <- result$combined_forecast_mse
-fcast2 <- result$forecast
-ma1_1
-combined_forecast_mse
-
-
-# h = 2 does not work for MA(1)
-#ma1_2 <- generate_forecasts(ts1, order, 2)
-```
-
-### AR(1)
-```{r}
-order <- c(1,0,0)
-
-# h = 1
-result <- generate_forecasts(ts1, order, 1)
-ar1 <- result$performance_results
-combined_forecast_mse <- result$combined_forecast_mse
-fcast3 <- result$forecast
-
-ar1
-combined_forecast_mse
-
-```
-```{r}
-# h = 2
-order <- c(1,0,0)
-result <- generate_forecasts(ts1, order, 2)
-ar1_2 <- result$performance_results
-combined_forecast_mse <- result$combined_forecast_mse
-fcast3_2 <- result$forecast
-
-ar1_2
-combined_forecast_mse
-```
-
-# COMBINED Forecast of all 3 model
-```{r}
-# Combined forecast for h1
-ts_test <- window(ts1, start=c(2018,1+1))
-
-## equal-weighted forecast: Average of all forecast
-fcast_ew <- (fcast1 + fcast2 +fcast3)/3
-###MSE: Mean squared error: AVG((actual - predicted)^2)
-mse_ew <- mean((ts_test-fcast_ew)^2)
-mse_ew <- c('Equal-weighted Forecast', mse_ew)
-
-
-## MSE-inversedly weight forecast: product(weights * forecasst)/ weight: 1/MSE of forecast
-weights <- c(1/mean((ts_test-fcast1)^2), 1/mean((ts_test-fcast2)^2), 1/mean((ts_test-fcast3)^2))
-fcast_mseiw <- weights[1] * fcast1 + weights[2] * fcast2 + weights[3] * fcast3
-
-mse_mseiw <- mean((ts_test - fcast_mseiw)^2)
-mse_mseiw <- c('MSE-inversedly-weighted Forecast', mse_mseiw)
-
-
-##OLS-weighted forecast MSE. Linear regression of all forecast
-
-o_wait = lm(ts_test ~ fcast1 + fcast2 +fcast3)
-fcast_ols <- o_wait$fitted.values
-
-mse_ols <- mean((ts_test-fcast_ols)^2)
-mse_ols <- c('OLS-weighted Forecast', mse_ols)
-
-
-combo_forecast_mse <- data.frame(rbind(mse_ew, mse_mseiw, mse_ols))
-colnames(combo_forecast_mse) <- c('Combination Method','Mean Squared Error')
-combo_forecast_mse
-```
-```{r}
-fcast_ols_ts <- ts(fcast_ols , start=c(2018,1+1), frequency = 4)
-plot(ts1, col = "blue", main = "Actual vs OLS-weighted Forecast 1 heah ahead")
-lines(fcast_ols_ts, col = "red")
-legend("topleft", legend = c("Original Data", "Predictions"), col = c("blue", "red"), lty = 1:2, pch = c(NA, 20))
-```
-
-```{r}
-
-# Combined forecast
-ts_test <- window(ts1, start=c(2018,1+2))
-fcast2 = window(fcast2, start = 2)
-## equal-weighted forecast: Average of all forecast
-fcast_ew <- (fcast1_2 + fcast2 +fcast3_2)/3
-###MSE: Mean squared error: AVG((actual - predicted)^2)
-mse_ew <- mean((ts_test-fcast_ew)^2)
-mse_ew <- c('Equal-weighted Forecast', mse_ew)
-
-
-## MSE-inversedly weight forecast: product(weights * forecasst)/ weight: 1/MSE of forecast
-weights <- c(1/mean((ts_test-fcast1_2)^2), 1/mean((ts_test-fcast2)^2), 1/mean((ts_test-fcast3_2)^2))
-fcast_mseiw <- weights[1] * fcast1_2 + weights[2] * fcast2 + weights[3] * fcast3_2
-
-mse_mseiw <- mean((ts_test - fcast_mseiw)^2)
-mse_mseiw <- c('MSE-inversedly-weighted Forecast', mse_mseiw)
-
-
-##OLS-weighted forecast MSE. Linear regression of all forecast
-
-o_wait = lm(ts_test ~ fcast1_2 + fcast2 +fcast3_2)
-fcast_ols <- o_wait$fitted.values
-
-mse_ols <- mean((ts_test-fcast_ols)^2)
-mse_ols <- c('OLS-weighted Forecast', mse_ols)
-
-
-combo_forecast_mse <- data.frame(rbind(mse_ew, mse_mseiw, mse_ols))
-colnames(combo_forecast_mse) <- c('Combination Method','Mean Squared Error')
-combo_forecast_mse
-```
-
-
-```{r}
-fcast_ols_ts <- ts(fcast_ols , start=c(2018,1+2), frequency = 4)
-plot(ts1, col = "blue", main = "Actual vs OLS-weighted Forecast 2 step ahead")
-lines(fcast_ols_ts, col = "red")
-legend("topleft", legend = c("Original Data", "Predictions"), col = c("blue", "red"), lty = 1:2, pch = c(NA, 20))
-```
-
-
-
-# ECON 5305: Econ & Business Forecasting
-
-# Data Translation Challenge
-
-# McKenzie Maidl, Tuan Anh Nguyen, Samikshya Pandey
-
-# Step 1: Explore the data and perform in-sample evaluations
-
-```{r}
-# imports
-library(readxl)
-library(forecast)
-library(dynlm)
-library(dplyr)
-```
-
-In the second step, you will use the three best models from the in-sample assessment for the out-of-sample assessment. Additionally, include two simple forecasts as benchmarks: 
-  1. A naïve model, where the optimal forecast of the next period is the value of this period, ft,1 = yt and 
-  2. A simple average of the last four observations,ft,1 = (yt + yt−1 + yt−2 + yt−3) /4. These models do not require estimation.
-Split the sample into two parts: the first 90% serves as the estimation sample, while the remaining 10% serves as the prediction sample. As a priori choices, use the quadratic loss function to find your optimal forecasts. Additionally, choose two forecasting horizons to make two types of forecasts: one-step ahead forecasts (h=1) and two-step ahead forecasts (h=2).
-
-The following procedure should be conducted for each type of forecasting. 
-1. Apply three schemes: the fixed sampling scheme, the recursive scheme, and the rolling scheme to collect forecasting errors.
-2. After obtaining forecasting errors, conduct forecast optimality tests (MPE and informational efficiency tests) for each model, calculate MSE, MAE, MAPE(%), and provide a descriptive evaluation of the average loss in a table similar to Table 9.6 on page 243 (excluding the last column).
-
-Lastly, create combined forecasts from the top three models using three linear combination schemes:
-1. An equal-weighted forecast.
-2. A forecast that weights each individual forecast by the inverse of its MSE.
-3. An OLS weighted optimal forecast.
-Display the weights and MSE of these three combined forecasts in a table format, similar to Table 9.8 on page 246, and provide comments on which combination scheme you prefer. Use your favorite model and combination scheme to make a single one-step ahead forecast with all your sample data. Do the same to make a single two-step ahead forecast.
-
-## Data
-```{r}
-# upload data
-total_sales <- read.csv('Data/TOTALSA.csv')
-```
-
-```{r}
-# create time series and make stationary
-ts <- ts(total_sales$TOTALSA, start=c(1976,1), frequency=4)
-ts1 <- diff(ts)
-```
-
-## Functions
-```{r}
-# function for measuring performance of a model forecast
-measure_performance <- function(actuals, predicted) {
+  # Compile results into a data frame
+  results_df <- data.frame(
+    Metric = c("MSE", "MAE", "MAPE", "MPE", "IE"),
+    Value = c(MSE, MAE, MAPE, MPE, IE)
+  )
   
-  error <- actuals - predicted
-  
-  # Mean Percentage Error
-  MPE <- round(summary(lm(error ~ 1))$coefficients[,3], 4)
-  
-  # Informational Efficiency
-  IE <- round(summary(lm(error ~ predicted))$coefficients[2,3], 4)
-  
-  # Mean Squared Error
-  MSE <- round(mean(error^2), 4)
-  
-  # Mean Absolute Error
-  MAE <- round(mean(abs(error)), 4)
-  
-  # Mean Absolute Percentage Error
-  pererror <-abs((actuals - predicted)/actuals)
-  MAPE <- round(mean(pererror) * 100, 4)
-  
-  results <- c(MPE, IE, MSE, MAE, MAPE)
-  return(results)
+  return(results_df)
 }
 ```
 
+## Models
+
+### Naive Model
 ```{r}
-# function for generating forecasts using different schemes
-generate_forecasts <- function(ts, model_order, h, perf_func=measure_performance) {
-  
-  # train/test split
+naive_forecast_performance <- function(ts, h) {
   ts_train <- window(ts, end=c(2018,1))
   ts_test <- window(ts, start=c(2018,1+h))
-  ntest <- length(ts_test)
   
-  # fixed scheme
-  m1 <- arima(ts_train, order=model_order)
-  fcast1 <- numeric(ntest) 
-  for (i in 1:ntest) {
-    up <- window(ts, end=c(2017,4+i))
-    md <- Arima(up, model=m1)
-    fcast1[i] <- forecast(md, h=h)$mean[h]
-  }
-  per1 <- perf_func(ts_test, fcast1)
-  per1 <- c('Fixed', per1)
-  per1df <- data.frame(matrix(unlist(per1), nrow=length(1), byrow=FALSE))
+  last_value <- tail(ts_train, 1)
+  naive_forecasts <- rep(last_value, length(ts_test))
 
-  # recursive scheme
-  fcast2 <- numeric(ntest)
-  for (i in 1:ntest) {
-    up <- window(ts, end=c(2017,4+i))
-    md <- arima(up, order=model_order)
-    fcast2[i] <- forecast(md, h=h)$mean[h]
-  }
-  per2 <- perf_func(ts_test, fcast2)
-  per2 <- c('Recursive', per2)
-  per2df <- data.frame(matrix(unlist(per2), nrow=length(1), byrow=FALSE))
-
-  # rolling scheme
-  fcast3 <- numeric(ntest)
-  for (i in 1:ntest) {
-    up <- window(ts, start=c(1976+i,1), end=c(2017,4+i))
-    md <- arima(up, order=model_order)
-    fcast3[i] <- forecast(md, h=h)$mean[h]
-  }
-  per3 <- perf_func(ts_test, fcast3)
-  per3 <- c('Rolling', per3)
-  per3df <- data.frame(matrix(unlist(per3), nrow=length(1), byrow=FALSE))
-
-  # compare performance
-  results <- data.frame(rbind(per1, per2, per3))
-  colnames(results) <- c('Scheme', 'MPE', 'IE', 'MSE', 'MAE', 'MAPE')
-  
-  
-  # Combined forecast
-
-  ## equal-weighted forecast: Average of all forecast
-  fcast_ew <- (fcast1 + fcast2 +fcast3)/3
-  ###MSE: Mean squared error: AVG((actual - predicted)^2)
-  mse_ew <- mean((ts_test-fcast_ew)^2)
-  mse_ew <- c('Equal-weighted Forecast', mse_ew)
-  
-  
-  ## MSE-inversedly weight forecast: product(weights * forecasst)/ weight: 1/MSE of forecast
-  weights <- c(1/mean((ts_test-fcast1)^2), 1/mean((ts_test-fcast2)^2), 1/mean((ts_test-fcast3)^2))
-  fcast_mseiw <- weights[1] * fcast1 + weights[2] * fcast2 + weights[3] * fcast3
-
-  mse_mseiw <- mean((ts_test - fcast_mseiw)^2)
-  mse_mseiw <- c('MSE-inversedly-weighted Forecast', mse_mseiw)
-  
-  
-  ##OLS-weighted forecast MSE. Linear regression of all forecast
-
-  o_wait = lm(ts_test ~ fcast1 + fcast2 +fcast3)
-  fcast_ols <- o_wait$fitted.values
-  
-  mse_ols <- mean((ts_test-fcast_ols)^2)
-  mse_ols <- c('OLS-weighted Forecast', mse_ols)
-  
-  
-  combo_forecast_mse <- data.frame(rbind(mse_ew, mse_mseiw, mse_ols))
-  colnames(combo_forecast_mse) <- c('Combination Method','Mean Squared Error')
-<<<<<<< HEAD
-  return(list(performance_results = results, combined_forecast_mse = combo_forecast_mse))
-=======
-  
-  
-  
-  return(list(performance_results = results, combined_forecast_mse = combo_forecast_mse, forecast = fcast1))
->>>>>>> a4b0016dfffb029046e7e3a3511b634202b4456a
+  # Use the separate performance metrics function
+  results_df <- calculate_performance_metrics(ts_test, naive_forecasts)
+  return(results_df)
 }
-```
 
-## Models
-
-### Naive Model - NEED TO DO
-```{r}
 # h = 1
+naive_1 <- naive_forecast_performance(ts1, 1)
+print(naive_1)
 
 # h = 2
-
+naive_2 <- naive_forecast_performance(ts1, 2)
+print(naive_2)
 ```
 
 ### Simple Average 4 Model - NEED TO DO
-```{r}
+```{r} 
+average_forecast_performance <- function(ts, h) {
+  ts_train <- window(ts, end=c(2018,1))
+  ts_test <- window(ts, start=c(2018,1+h))
+  
+  last_four_values <- tail(ts_train, 4)
+  average_forecast <- mean(last_four_values)
+  average_forecasts <- rep(average_forecast, length(ts_test))
+
+  # Use the separate performance metrics function
+  results_df <- calculate_performance_metrics(ts_test, average_forecasts)
+  return(results_df)
+}
+```
+
+```{r} 
 # h = 1
+average_results1 <- average_forecast_performance(ts1, 1)
+print(average_results1)
+```
 
+```{r} 
 # h = 2
-
+average_results2 <- average_forecast_performance(ts1, 2)
+print(average_results2)
 ```
 
 ### ARMA(3,3)
@@ -505,24 +217,19 @@ order <- c(3,0,3)
 result <- generate_forecasts(ts1, order, 1)
 arma33_1 <- result$performance_results
 combined_forecast_mse <- result$combined_forecast_mse
-<<<<<<< HEAD
-=======
 fcast1 <-result$forecast
->>>>>>> a4b0016dfffb029046e7e3a3511b634202b4456a
 arma33_1
 combined_forecast_mse
 
 ```
+
 ```{r}
 order <- c(3,0,3)
 # h = 2
 result <- generate_forecasts(ts1, order, 2)
 arma33_2 <- result$performance_results
 combined_forecast_mse <- result$combined_forecast_mse
-<<<<<<< HEAD
-=======
 fcast1_2 <- result$forecast
->>>>>>> a4b0016dfffb029046e7e3a3511b634202b4456a
 arma33_2
 combined_forecast_mse
 ```
@@ -535,10 +242,7 @@ order <- c(0,0,1)
 result <- generate_forecasts(ts1, order, 1)
 ma1_1 <- result$performance_results
 combined_forecast_mse <- result$combined_forecast_mse
-<<<<<<< HEAD
-=======
 fcast2 <- result$forecast
->>>>>>> a4b0016dfffb029046e7e3a3511b634202b4456a
 ma1_1
 combined_forecast_mse
 
@@ -555,40 +259,29 @@ order <- c(1,0,0)
 result <- generate_forecasts(ts1, order, 1)
 ar1 <- result$performance_results
 combined_forecast_mse <- result$combined_forecast_mse
-<<<<<<< HEAD
-ar1
-combined_forecast_mse
-
-=======
 fcast3 <- result$forecast
 
 ar1
 combined_forecast_mse
 
->>>>>>> a4b0016dfffb029046e7e3a3511b634202b4456a
 ```
+
 ```{r}
 # h = 2
 order <- c(1,0,0)
 result <- generate_forecasts(ts1, order, 2)
 ar1_2 <- result$performance_results
 combined_forecast_mse <- result$combined_forecast_mse
-<<<<<<< HEAD
-=======
 fcast3_2 <- result$forecast
 
->>>>>>> a4b0016dfffb029046e7e3a3511b634202b4456a
 ar1_2
 combined_forecast_mse
 ```
 
-<<<<<<< HEAD
-=======
 # COMBINED Forecast of all 3 model
 ```{r}
 # Combined forecast for h1
 ts_test <- window(ts1, start=c(2018,1+1))
->>>>>>> a4b0016dfffb029046e7e3a3511b634202b4456a
 
 ## equal-weighted forecast: Average of all forecast
 fcast_ew <- (fcast1 + fcast2 +fcast3)/3
@@ -626,7 +319,6 @@ legend("topleft", legend = c("Original Data", "Predictions"), col = c("blue", "r
 ```
 
 ```{r}
-
 # Combined forecast
 ts_test <- window(ts1, start=c(2018,1+2))
 fcast2 = window(fcast2, start = 2)
