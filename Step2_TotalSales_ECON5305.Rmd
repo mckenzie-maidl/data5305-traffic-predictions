@@ -58,7 +58,7 @@ measure_performance <- function(actuals, predicted) {
   MSE <- round(mean(error^2), 4)
   
   # Mean Absolute Error
-  MAE <- round(mean(error), 4)
+  MAE <- round(mean(abs(error)), 4)
   
   # Mean Absolute Percentage Error
   pererror <-abs((actuals - predicted)/actuals)
