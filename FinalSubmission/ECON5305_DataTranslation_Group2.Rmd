@@ -12,7 +12,6 @@ library(urca)
 ```
 
 ## Data
-
 ```{r}
 # upload data
 total_sales <- read.csv('TOTALSA.csv')
@@ -22,7 +21,6 @@ head(total_sales)
 ```{r}
 # convert date into time format
 total_sales$DATE <- as.Date(total_sales$DATE, format = "%d/%m/%Y")
-class(total_sales$DATE)
 ```
 
 ```{r}
@@ -36,7 +34,7 @@ plot(ts, xlab = "Time", ylab = "Total vehicle Sales per quarter", main = "Sales 
 summary(ur.df(ts, type="drift", lags=0))
 ```
 
-ADF test statistics (-0.29) higher than critical value (-2.58) so we cannot reject the null. Therefore, our data has unit root and it is not stationary. 
+ADF test statistic is higher than critical value so we cannot reject the null. Therefore, our data has unit root and it is not stationary. 
 
 ```{r}
 # make data stationary via first difference
@@ -47,7 +45,7 @@ plot(ts1)
 summary(ur.df(ts1, type="drift", lags=0))
 ```
 
-After we take the difference of the total sales, we can see that the data is stationary. This is further confirmed by the ADF test. Our ADF test statistics value (-17.20) is much smaller than the critical value. Therefore, we can confirm that the data is now stationary. 
+After we take the difference of the total sales, we can see that the data is stationary. This is further confirmed by the ADF test. Our ADF test statistics value is much smaller than the critical value. Therefore, we can confirm that the data is now stationary. 
 
 ```{r}
 # ACF and PACF plots (stationary time series)
@@ -112,14 +110,14 @@ sorted_by_bic <- all_models[order(all_models$bic), ]
 top_5_bic <- head(sorted_by_bic, 5)
 top_5_bic
 ```
-Based on the value, we choose ARMA(3,3), MA(1), and R(1) because these performed best when sorted by AIC and MIC. which is better than any models sorted by BIC method. The AIC value is also acceptable and BIC vales are not that different.
+Based on the value, we choose ARMA(3,3), MA(1), and R(1) because these performed best when sorted by AIC, which is better than any models sorted by BIC method. The AIC value is also acceptable and BIC vales are not that different.
 
-The AIC and BIC for ARMA(3,3) are 942.5 and 968.4 respectively. For MA(1)	these are 942.7 and 952.4, and for AR(1) they are 943.5 and 953.2.
+The AIC and BIC for ARMA(3,3) are about 942 and 968 respectively. For MA(1)	these are about 942 and 952, and for AR(1) they are 943 and 953.
 
 ### ARMA(3,3)
 All ACF (except the first one) and PACF lags are within the significance lines, indicating they resemble white noise.
 
-Given the p-value of 0.9745, we would fail to reject the null hypothesis of the Ljung-Box test, which states that the residuals are independently distributed (i.e., exhibit no autocorrelation). This is an indicator of a good model fit, as it implies that the residuals from the ARMA(3,3) model resemble white noise. 
+Given the p-value of over 0.9, we would fail to reject the null hypothesis of the Ljung-Box test, which states that the residuals are independently distributed (i.e., exhibit no autocorrelation). This is an indicator of a good model fit, as it implies that the residuals from the ARMA(3,3) model resemble white noise. 
 ```{r}
 # create model
 model_finalarma3 <- arima(ts1, order=c(3,0,3))
