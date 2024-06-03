@@ -1,0 +1,500 @@
+# ECON 5305: Econ & Business Forecasting
+
+# Data Translation Challenge
+
+# McKenzie Maidl, Tuan Anh Nguyen, Samikshya Pandey
+
+```{r}
+# imports
+library(dplyr)
+library(forecast)
+library(urca)
+```
+
+## Data
+
+```{r}
+# upload data
+total_sales <- read.csv('TOTALSA.csv')
+head(total_sales)
+```
+
+```{r}
+# convert date into time format
+total_sales$DATE <- as.Date(total_sales$DATE, format = "%d/%m/%Y")
+class(total_sales$DATE)
+```
+
+```{r}
+# create time series
+ts <- ts(total_sales$TOTALSA, start=c(1976,1),  frequency=4)
+plot(ts, xlab = "Time", ylab = "Total vehicle Sales per quarter", main = "Sales Over Time")
+```
+
+```{r}
+# check if data is stationary via the Augmented Dickey-Fuller test
+summary(ur.df(ts, type="drift", lags=0))
+```
+
+ADF test statistics (-0.29) higher than critical value (-2.58) so we cannot reject the null. Therefore, our data has unit root and it is not stationary. 
+
+```{r}
+# make data stationary via first difference
+ts1 <- diff(ts)
+plot(ts1)
+
+# Augmented Dickey-Fuller
+summary(ur.df(ts1, type="drift", lags=0))
+```
+
+After we take the difference of the total sales, we can see that the data is stationary. This is further confirmed by the ADF test. Our ADF test statistics value (-17.20) is much smaller than the critical value. Therefore, we can confirm that the data is now stationary. 
+
+```{r}
+# ACF and PACF plots (stationary time series)
+acf(ts1)
+pacf(ts1)
+```
+
+From the initial ACF and PACF plots, we see that our PACF values alternate between negative and positive and that there are spikes in the first two lags for ACF.
+
+## Step 1: Models
+
+```{r}
+# create different models:
+labels <- c()
+r2 <- c()
+aic <- c()
+bic <- c()
+mean_resd <- c()
+
+for (m in c(1, 2, 3, 4, 5, 6)) {
+  m1 <- arima(ts1, order=c(m, 0, 0))
+  m2 <- arima(ts1, order=c(0, 0, m))
+  m3 <- arima(ts1, order=c(1, 0, m))
+  m4 <- arima(ts1, order=c(m, 0, m))
+  
+  # Correcting label concatenation
+  labels <- c(labels, paste("AR(", m, ")", sep=""), 
+                      paste("MA(", m, ")", sep=""), 
+                      paste("ARMA(1,", m, ")", sep=""), 
+                      paste("ARMA(", m, ",", m, ")", sep=""))
+  
+  # Calculate R^2 and ensure both series have no NA values for valid comparison
+  r2 <- c(r2, cor(fitted(m1), ts1, use = "complete.obs")^2, 
+              cor(fitted(m2), ts1, use = "complete.obs")^2, 
+              cor(fitted(m3), ts1, use = "complete.obs")^2, 
+              cor(fitted(m4), ts1, use = "complete.obs")^2)
+  
+  aic <- c(aic, AIC(m1), AIC(m2), AIC(m3), AIC(m4))
+  bic <- c(bic, BIC(m1), BIC(m2), BIC(m3), BIC(m4))
+  mean_resd <- c(mean_resd, mean(residuals(m1)), 
+                            mean(residuals(m2)), 
+                            mean(residuals(m3)), 
+                            mean(residuals(m4)))
+}
+
+# Creating the data frame to display results
+all_models <- data.frame(labels, r2, aic, bic,mean_resd)
+all_models <- all_models[!duplicated(all_models), ]
+all_models
+```
+
+```{r}
+# sort models by AIC and select top 5
+sorted_by_aic <- all_models[order(all_models$aic), ]
+top_5_aic <- head(sorted_by_aic, 5)
+top_5_aic
+```
+
+```{r}
+# sort models by BIC and select the top 5
+sorted_by_bic <- all_models[order(all_models$bic), ]
+top_5_bic <- head(sorted_by_bic, 5)
+top_5_bic
+```
+Based on the value, we choose ARMA(3,3), MA(1), and R(1) because these performed best when sorted by AIC and MIC. which is better than any models sorted by BIC method. The AIC value is also acceptable and BIC vales are not that different.
+
+The AIC and BIC for ARMA(3,3) are 942.5 and 968.4 respectively. For MA(1)	these are 942.7 and 952.4, and for AR(1) they are 943.5 and 953.2.
+
+### ARMA(3,3)
+All ACF (except the first one) and PACF lags are within the significance lines, indicating they resemble white noise.
+
+Given the p-value of 0.9745, we would fail to reject the null hypothesis of the Ljung-Box test, which states that the residuals are independently distributed (i.e., exhibit no autocorrelation). This is an indicator of a good model fit, as it implies that the residuals from the ARMA(3,3) model resemble white noise. 
+```{r}
+# create model
+model_finalarma3 <- arima(ts1, order=c(3,0,3))
+summary(model_finalarma3)
+
+# ACF and PACF of model residuals
+residuals_arma3 <- residuals(model_finalarma3)
+acf(residuals_arma3, main="ACF of Residuals")
+pacf(residuals_arma3, main="PACF of Residuals")
+
+# Q-Test of the residuals to confirm they resemble white noise
+ljung_box_testarma3 <- Box.test(residuals_arma3, type = "Ljung-Box", lag = 10)
+print(ljung_box_testarma3)
+```
+
+### MA(1)
+MA(1,) also has residuals that resemble white noise (p-value of 0.95), all ACF and PACF of residuals within the significance line. 
+```{r}
+# create model
+model_finalma1 <-  arima(ts1, order=c(0, 0, 1))
+summary(model_finalma1)
+
+# ACF and PACF of model residuals
+residuals_ma1 <- residuals(model_finalma1)
+acf(residuals_ma1, main="ACF of Residuals")
+pacf(residuals_ma1, main="PACF of Residuals")
+
+# Q-Test of the residuals to confirm they resemble white noise
+ljung_box_testma1 <- Box.test(residuals_ma1, type = "Ljung-Box", lag = 10)
+print(ljung_box_testma1)
+```
+
+### AR(1)
+ARMA (2,2) also has 0.91 of p value but it is less significance from other two models and also the PACF of the residuals has one significant value.
+```{r}
+# create model
+model_finalar1 <-  arima(ts1, order=c(1, 0, 0))
+summary(model_finalar1)
+
+# ACF and PACF of model residuals
+residuals_ar1 <- residuals(model_finalar1)
+acf(residuals_ar1, main="ACF of Residuals")
+pacf(residuals_ar1, main="PACF of Residuals")
+
+# Q-Test of the residuals to confirm they resemble white noise
+ljung_box_testar1 <- Box.test(residuals_ar1, type = "Ljung-Box", lag = 10)
+print(ljung_box_testar1)
+```
+ 
+## Step 1: Forecasting
+
+### ARMA(3,3)
+```{r}
+forecast_arma33 <- forecast(model_finalarma3, h=4)
+plot(forecast_arma33, main="4-Step Ahead Forecasts with ARMA(3,3) Model", 
+     xlab="Time", ylab="Forecast")
+```
+
+### MA(1)
+```{r}
+forecast_ma1 <- forecast(model_finalma1, h=4)
+plot(forecast_ma1, main="4-Step Ahead Forecasts with MA(1) Model", xlab="Time", ylab="Forecast")
+```
+
+### AR(1)
+```{r}
+forecast_ar1 <- forecast(model_finalar1, h=4)
+plot(forecast_ar1, main="4-Step Ahead Forecasts with AR(1) Model", xlab="Time", ylab="Forecast")
+```
+
+## Comparing Model Performance
+
+### Loss Comparison
+
+#### Functions
+```{r}
+# function for measuring performance of a model forecast
+measure_performance <- function(actuals, predicted, simple=FALSE) {
+  
+  # calculate error
+  error <- actuals - predicted
+  
+  # Mean Percentage Error
+  MPE <- round(mean(error / actuals), 4)
+  
+  # Informational Efficiency
+  summ <- summary(lm(error ~ predicted))
+  if (simple == TRUE) {
+    t_val <- round(summ[[4]][3], 4)
+    p_val <- round(summ[[4]][4], 4)
+  }
+  else {
+    t_val <- round(summ[[4]][6], 4)
+    p_val <- round(summ[[4]][8], 4)
+  }
+  reject <- if(p_val < 0.05) 1 else 0
+  IE <- paste(t_val, p_val, reject, sep=", ")
+  
+  # Mean Squared Error
+  MSE <- round(mean(error^2), 4)
+  
+  # Mean Absolute Error
+  MAE <- round(mean(abs(error)), 4)
+  
+  # Mean Absolute Percentage Error
+  pererror <-abs((error)/actuals)
+  MAPE <- round(mean(pererror), 4)
+  
+  results <- c(MPE, IE, MSE, MAE, MAPE)
+  return(results)
+}
+```
+
+```{r}
+# function for generating forecasts using different schemes
+generate_forecasts <- function(ts, model, model_order, h) {
+  
+  # train/test split
+  ts_train <- window(ts, end=c(2018,1))
+  ts_test <- window(ts, start=c(2018,1+h))
+  ntest <- length(ts_test)
+  
+  # fixed scheme
+  m1 <- arima(ts_train, order=model_order)
+  fcast1 <- numeric(ntest) 
+  for (i in 1:ntest) {
+    up <- window(ts, end=c(2017,4+i))
+    md <- Arima(up, model=m1)
+    fcast1[i] <- forecast(md, h=h)$mean[h]
+  }
+  per1 <- measure_performance(ts_test, fcast1)
+  per1 <- c(model, 'Fixed', per1)
+  per1df <- data.frame(matrix(unlist(per1), nrow=length(1), byrow=FALSE))
+
+  # recursive scheme
+  fcast2 <- numeric(ntest)
+  for (i in 1:ntest) {
+    up <- window(ts, end=c(2017,4+i))
+    md <- arima(up, order=model_order)
+    fcast2[i] <- forecast(md, h=h)$mean[h]
+  }
+  per2 <- measure_performance(ts_test, fcast2)
+  per2 <- c(model, 'Recursive', per2)
+  per2df <- data.frame(matrix(unlist(per2), nrow=length(1), byrow=FALSE))
+
+  # rolling scheme
+  fcast3 <- numeric(ntest)
+  for (i in 1:ntest) {
+    up <- window(ts, start=c(1976+i,1), end=c(2017,4+i))
+    md <- arima(up, order=model_order)
+    fcast3[i] <- forecast(md, h=h)$mean[h]
+  }
+  per3 <- measure_performance(ts_test, fcast3)
+  per3 <- c(model, 'Rolling', per3)
+  per3df <- data.frame(matrix(unlist(per3), nrow=length(1), byrow=FALSE))
+
+  # compare performance
+  results <- data.frame(rbind(per1, per2, per3))
+  colnames(results) <- c('Model', 'Scheme', 'MPE', 'IE', 'MSE', 'MAE', 'MAPE')
+  
+  return(list(results=results, forecast=fcast1))
+}
+```
+
+```{r}
+# function for generating forecasts for naive model
+generate_naive_forecast <- function(ts, h) {
+  
+  # train/test split
+  ts_train <- window(ts, end=c(2018,1))
+  ts_test <- window(ts, start=c(2018,1+h))
+  ntest <- length(ts_test)
+  
+  last_value <- tail(ts_train, 1)
+  naive_forecasts <- rep(last_value, ntest)
+  
+  results <- measure_performance(ts_test, naive_forecasts, simple=TRUE)
+  results <- c('Naive', 'Fixed', results)
+  results <- data.frame(matrix(unlist(results), nrow=length(1), byrow=FALSE))
+  colnames(results) <- c('Model', 'Scheme', 'MPE', 'IE', 'MSE', 'MAE', 'MAPE')
+  
+  return(results)
+}
+```
+
+```{r}
+# function for generating forecasts for simple average model
+generate_average_forecast <- function(ts, h) {
+  
+  # train/test split
+  ts_train <- window(ts, end=c(2018,1))
+  ts_test <- window(ts, start=c(2018,1+h))
+  ntest <- length(ts_test)
+  
+  last_four_values <- tail(ts_train, 4)
+  average_forecast <- mean(last_four_values)
+  average_forecasts <- rep(average_forecast, ntest)
+  
+  results <- measure_performance(ts_test, average_forecasts, simple=TRUE)
+  results <- c('Simple Average', 'Fixed', results)
+  results <- data.frame(matrix(unlist(results), nrow=length(1), byrow=FALSE))
+  colnames(results) <- c('Model', 'Scheme', 'MPE', 'IE', 'MSE', 'MAE', 'MAPE')
+  
+  return(results)
+}
+```
+
+#### Results
+```{r}
+# 1 step ahead forecast
+naive_1 <- generate_naive_forecast(ts1, 1)
+simple_1 <- generate_average_forecast(ts1, 1)
+arma33_1 <- generate_forecasts(ts1, 'ARMA(3,3)', c(3,0,3), 1)
+ma1_1 <- generate_forecasts(ts1, 'MA(1)', c(0,0,1), 1)
+ar_1 <- generate_forecasts(ts1, 'AR(1)', c(1,0,0), 1)
+
+arma33_1_results <- arma33_1$results
+ma1_1_results <- ma1_1$results
+ar_1_results <- ar_1$results
+
+# combine results
+r1a <- union(naive_1, simple_1)
+r1b <- union(r1a, arma33_1_results)
+r1c <- union(r1b, ma1_1_results)
+results_1 <- union(r1c, ar_1_results)
+rownames(results_1) <- NULL
+
+# display results
+results_1
+```
+
+```{r}
+# 2 step ahead forecast
+naive_2 <- generate_naive_forecast(ts1, 2)
+simple_2 <- generate_average_forecast(ts1, 2)
+arma33_2 <- generate_forecasts(ts1, 'ARMA(3,3)', c(3,0,3), 2)
+ar_2 <- generate_forecasts(ts1, 'AR(1)', c(1,0,0), 2)
+
+arma33_2_results <- arma33_2$results
+ar_2_results <- ar_2$results
+
+# combine results
+r2a <- union(naive_2, simple_2)
+r2b <- union(r2a, arma33_2_results)
+results_2 <- union(r2b, ar_2_results)
+rownames(results_2) <- NULL
+
+# display results
+results_2
+```
+
+### Combined Forecasts
+
+3 models: ARMA(3,3), MA(1), AR(1)
+Fixed scheme for each.
+
+#### Function
+```{r}
+# function for combined forecast
+combined_forecast <- function(ts, h, fcast1, fcast2, fcast3) {
+  
+  # test data
+  ts_test <- window(ts, start=c(2018,1+h))
+  
+  # Equal-Weighted Forecast (average of all)
+  fcast_ew <- (fcast1 + fcast2 +fcast3)/3
+  mse_ew <- mean((ts_test-fcast_ew)^2) # MSE
+  mse_ew <- c('Equal-weighted Forecast', mse_ew)
+  
+  # MSE-Inversely Weighted Forecast
+  weights <- c(1/mean((ts_test-fcast1)^2), 1/mean((ts_test-fcast2)^2), 1/mean((ts_test-fcast3)^2))
+  fcast_mseiw <- weights[1] * fcast1 + weights[2] * fcast2 + weights[3] * fcast3
+  mse_mseiw <- mean((ts_test - fcast_mseiw)^2)
+  mse_mseiw <- c('MSE-inversedly-weighted Forecast', mse_mseiw)
+  
+  # OLS-Weighted Forecast (linear regression of all forecasts)
+  o_wait = lm(ts_test ~ fcast1 + fcast2 +fcast3)
+  fcast_ols <- o_wait$fitted.values
+  mse_ols <- mean((ts_test-fcast_ols)^2)
+  mse_ols <- c('OLS-weighted Forecast', mse_ols)
+  
+  # visualize results
+  fcast_ols_ts <- ts(fcast_ols , start=c(2018,1+h), frequency = 4)
+  plot(ts, col = "blue", main = paste("Actual vs OLS-weighted Forecast", h, "Step Ahead"))
+  lines(fcast_ols_ts, col = "red")
+  legend("topleft", legend = c("Original Data", "Predictions"), 
+         col = c("blue", "red"), lty = 1:2, pch = c(NA, 20))
+
+  # return results
+  combo_forecast_mse <- data.frame(rbind(mse_ew, mse_mseiw, mse_ols))
+  colnames(combo_forecast_mse) <- c('Combination Method','Mean Squared Error')
+  return(combo_forecast_mse)
+}
+```
+
+### 1 Step Ahead
+```{r}
+# prep
+ts <- ts1
+h <- 1
+fcast1 <- arma33_1$forecast
+fcast2 <- ma1_1$forecast
+fcast3 <- ar_1$forecast
+
+# test data
+ts_test <- window(ts, start=c(2018,1+h))
+
+# Equal-Weighted Forecast (average of all)
+fcast_ew <- (fcast1 + fcast2 +fcast3)/3
+mse_ew <- mean((ts_test-fcast_ew)^2)
+mse_ew <- c('Equal-weighted Forecast', mse_ew)
+
+# MSE-Inversely Weighted Forecast
+weights <- c(1/mean((ts_test-fcast1)^2), 1/mean((ts_test-fcast2)^2), 1/mean((ts_test-fcast3)^2))
+fcast_mseiw <- weights[1] * fcast1 + weights[2] * fcast2 + weights[3] * fcast3
+mse_mseiw <- mean((ts_test - fcast_mseiw)^2)
+mse_mseiw <- c('MSE-inversedly-weighted Forecast', mse_mseiw)
+
+# OLS-Weighted Forecast (linear regression of all forecasts)
+o_wait = lm(ts_test ~ fcast1 + fcast2 + fcast3)
+fcast_ols <- o_wait$fitted.values
+mse_ols <- mean((ts_test-fcast_ols)^2)
+mse_ols <- c('OLS-weighted Forecast', mse_ols)
+
+# visualize results
+fcast_ols_ts <- ts(fcast_ols , start=c(2018,1+h), frequency = 4)
+plot(ts, col = "blue", main = paste("Actual vs OLS-weighted Forecast", h, "Step Ahead"))
+lines(fcast_ols_ts, col = "red")
+legend("topleft", legend = c("Original Data", "Predictions"), 
+       col = c("blue", "red"), lty = 1:2, pch = c(NA, 20))
+
+# print results
+combo_forecast_mse <- data.frame(rbind(mse_ew, mse_mseiw, mse_ols))
+colnames(combo_forecast_mse) <- c('Combination Method','Mean Squared Error')
+combo_forecast_mse
+```
+
+### 2 Steps Ahead
+```{r}
+# prep
+ts <- ts1
+h <- 2
+fcast1 <- arma33_2$forecast
+fcast2 <- ar_2$forecast
+
+# test data
+ts_test <- window(ts, start=c(2018,1+h))
+
+# Equal-Weighted Forecast (average of all)
+fcast_ew <- (fcast1 + fcast2)/2
+mse_ew <- mean((ts_test-fcast_ew)^2)
+mse_ew <- c('Equal-weighted Forecast', mse_ew)
+
+# MSE-Inversely Weighted Forecast
+weights <- c(1/mean((ts_test-fcast1)^2), 1/mean((ts_test-fcast2)^2))
+fcast_mseiw <- weights[1] * fcast1 + weights[2] * fcast2
+mse_mseiw <- mean((ts_test - fcast_mseiw)^2)
+mse_mseiw <- c('MSE-inversedly-weighted Forecast', mse_mseiw)
+
+# OLS-Weighted Forecast (linear regression of all forecasts)
+o_wait = lm(ts_test ~ fcast1 + fcast2)
+fcast_ols <- o_wait$fitted.values
+mse_ols <- mean((ts_test-fcast_ols)^2)
+mse_ols <- c('OLS-weighted Forecast', mse_ols)
+
+# visualize results
+fcast_ols_ts <- ts(fcast_ols , start=c(2018,1+h), frequency = 4)
+plot(ts, col = "blue", main = paste("Actual vs OLS-weighted Forecast", h, "Step Ahead"))
+lines(fcast_ols_ts, col = "red")
+legend("topleft", legend = c("Original Data", "Predictions"), 
+       col = c("blue", "red"), lty = 1:2, pch = c(NA, 20))
+
+# print results
+combo_forecast_mse <- data.frame(rbind(mse_ew, mse_mseiw, mse_ols))
+colnames(combo_forecast_mse) <- c('Combination Method','Mean Squared Error')
+combo_forecast_mse
+```
+
