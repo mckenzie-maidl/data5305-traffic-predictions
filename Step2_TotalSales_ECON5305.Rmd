@@ -181,7 +181,7 @@ naive_2 <- naive_forecast_performance(ts1, 2)
 print(naive_2)
 ```
 
-### Simple Average 4 Model - NEED TO DO
+### Simple Average 4 Model
 ```{r} 
 average_forecast_performance <- function(ts, h) {
   ts_train <- window(ts, end=c(2018,1))
